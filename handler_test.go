@@ -45,12 +45,14 @@ func Test_toJSON(t *testing.T) {
 		{
 			name: "case1",
 			args: args{r: r0},
-			want: fmt.Sprintf(`{"ts":1669878245000000100,"time":"%s","level":"INFO","pkg":"","fun":"","path":"","file":"","line":0,"key":"value","msg":"Hello, World!"}`, r0.Time.Format(timeFormatOnJSON)),
+			want: fmt.Sprintf(`{"ts":%d,"time":"%s","level":"INFO","pkg":"","fun":"","path":"","file":"","line":0,"key":"value","msg":"Hello, World!"}`,
+				r0.Time.UnixNano(), r0.Time.Format(timeFormatOnJSON)),
 		},
 		{
 			name: "case2",
 			args: args{r: r1},
-			want: fmt.Sprintf(`{"ts":1669878245100000000,"time":"%s","level":"INFO","pkg":"code.gopub.tech/logs/pkg/caller","fun":"PC","path":"%s","file":"pc.go","line":10,"key":"value","num":42,"msg":"Hello, World!"}`, r1.Time.Format(timeFormatOnJSON), dir),
+			want: fmt.Sprintf(`{"ts":%d,"time":"%s","level":"INFO","pkg":"code.gopub.tech/logs/pkg/caller","fun":"PC","path":"%s","file":"pc.go","line":10,"key":"value","num":42,"msg":"Hello, World!"}`,
+				r1.Time.UnixNano(), r1.Time.Format(timeFormatOnJSON), dir),
 		},
 	}
 	for _, tt := range tests {
