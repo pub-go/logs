@@ -82,3 +82,7 @@ logs.WithJson(bool)               // 是否输出 json 格式 默认 false
 logs.WithLevel(level Level)       // 默认 Info 级别
 logs.WithLevels(*trie.Tree[Level])// 为不同包名配置不同级别
 ```
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpub-go%2Flogs.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpub-go%2Flogs?ref=badge_large)
