@@ -45,12 +45,12 @@ func Test_toJSON(t *testing.T) {
 		{
 			name: "case1",
 			args: args{r: r0},
-			want: `{"ts":1669878245000000100,"time":"2022-12-01T15:04:05.000000100+08:00","level":"INFO","pkg":"","fun":"","path":"","file":"","line":0,"key":"value","msg":"Hello, World!"}`,
+			want: fmt.Sprintf(`{"ts":1669878245000000100,"time":"%s","level":"INFO","pkg":"","fun":"","path":"","file":"","line":0,"key":"value","msg":"Hello, World!"}`, r0.Time.Format(timeFormatOnJSON)),
 		},
 		{
 			name: "case2",
 			args: args{r: r1},
-			want: fmt.Sprintf(`{"ts":1669878245100000000,"time":"2022-12-01T15:04:05.100000000+08:00","level":"INFO","pkg":"code.gopub.tech/logs/pkg/caller","fun":"PC","path":"%s","file":"pc.go","line":10,"key":"value","num":42,"msg":"Hello, World!"}`, dir),
+			want: fmt.Sprintf(`{"ts":1669878245100000000,"time":"%s","level":"INFO","pkg":"code.gopub.tech/logs/pkg/caller","fun":"PC","path":"%s","file":"pc.go","line":10,"key":"value","num":42,"msg":"Hello, World!"}`, r1.Time.Format(timeFormatOnJSON), dir),
 		},
 	}
 	for _, tt := range tests {
@@ -74,12 +74,12 @@ func Test_toString(t *testing.T) {
 		{
 			name: "case1-unknown-file",
 			args: args{r: r0},
-			want: "2022-12-01T15:04:05.000+08:00 INFO ?.? ?/???:0 key=value Hello, World!",
+			want: fmt.Sprintf("%s INFO ?.? ?/???:0 key=value Hello, World!", r0.Time.Format(timeFormatOnText)),
 		},
 		{
 			name: "case2-with-pc-file",
 			args: args{r: r1},
-			want: fmt.Sprintf("2022-12-01T15:04:05.100+08:00 INFO code.gopub.tech/logs/pkg/caller.PC %s/pc.go:10 key=value num=42 Hello, World!", dir),
+			want: fmt.Sprintf("%s INFO code.gopub.tech/logs/pkg/caller.PC %s/pc.go:10 key=value num=42 Hello, World!", r1.Time.Format(timeFormatOnText), dir),
 		},
 	}
 	for _, tt := range tests {

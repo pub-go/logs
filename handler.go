@@ -66,13 +66,18 @@ func (h *handler) Enable(r Record) bool {
 	return r.Level >= h.levelConfig.Search(frame.Pkg)
 }
 
+var (
+	timeFormatOnJSON = "2006-01-02T15:04:05.000000000-07:00"
+	timeFormatOnText = "2006-01-02T15:04:05.000-07:00"
+)
+
 func toJSON(r Record) string {
 	var sb strings.Builder
 	// {"time":"","level":"","pkg":"","fun":"","path":"","file":"","line":0,"msg":"","key":"value"}
 	sb.WriteString(`{"ts":`)
 	sb.WriteString(strconv.FormatInt(int64(r.Time.UnixNano()), 10))
 	sb.WriteString(`,"time":"`)
-	sb.WriteString(r.Time.Format("2006-01-02T15:04:05.000000000-07:00"))
+	sb.WriteString(r.Time.Format(timeFormatOnJSON))
 	sb.WriteString(`","level":`)
 	sb.WriteString(strconv.Quote(r.Level.String()))
 	sb.WriteString(`,"pkg":"`)
@@ -101,7 +106,7 @@ func toJSON(r Record) string {
 }
 
 func toString(r Record) string {
-	time := r.Time.Format("2006-01-02T15:04:05.000-07:00")
+	time := r.Time.Format(timeFormatOnText)
 	frame := caller.GetFrame(r.PC)
 	var sb strings.Builder
 	// 2006-01-02T15:04:05.000-07:00 NOTICE pkg.fun path/file.go:11 key=value Message

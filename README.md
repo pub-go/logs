@@ -5,6 +5,7 @@
 [![codecov](https://codecov.io/gh/pub-go/logs/branch/main/graph/badge.svg)](https://codecov.io/gh/pub-go/logs)
 [![Go Report Card](https://goreportcard.com/badge/code.gopub.tech/logs)](https://goreportcard.com/report/code.gopub.tech/logs)
 [![Go Reference](https://pkg.go.dev/badge/code.gopub.tech/logs.svg)](https://pkg.go.dev/code.gopub.tech/logs)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpub-go%2Flogs.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpub-go%2Flogs?ref=badge_shield)
 
 ## Logger 前端
 
