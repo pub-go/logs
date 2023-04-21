@@ -4,55 +4,152 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 
 	"code.gopub.tech/logs/pkg/caller"
 	"code.gopub.tech/logs/pkg/trie"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// Handler handles log record, output it to somewhere.
+//
+// 处理日志的接口.
 type Handler interface {
+	// Output output the log Record.
+	//
+	// 输出日志.
 	Output(Record)
 }
 
+type Handlers []Handler
+
+func (s Handlers) Output(r Record) {
+	for _, h := range s {
+		h.Output(r)
+	}
+}
+
+func CombineHandlers(h ...Handler) Handler {
+	return Handlers(h)
+}
+
+// NewHandler create a new Handler with Info level by default.
+//
+// 创建一个日志处理器, 默认日志级别是 Info.
 func NewHandler(opt ...Option) Handler {
-	h := &handler{levelConfig: trie.NewTree(LevelInfo)}
+	h := &handler{
+		Writer:       log.Writer(),
+		defaultLevel: LevelInfo,
+		levelConfig:  trie.NewTree(LevelInfo),
+	}
 	for _, op := range opt {
 		op(h)
 	}
 	return h
 }
 
+// Option Handler options.
+//
+// 日志处理器的配置选项.
 type Option func(*handler)
 
+// WithWriter is a option that set the log output.
+//
+// 设置日志输出目的地.
 func WithWriter(w io.Writer) Option { return func(h *handler) { h.Writer = w } }
-func WithJson(b bool) Option        { return func(h *handler) { h.json = b } }
-func WithLevel(level Level) Option {
-	return func(h *handler) { h.levelConfig.Insert("", level) }
+
+// WithFile set the log output to a file.
+//
+// 设置输出目的地为文件,日志文件自动轮转.
+func WithFile(name string) Option {
+	return func(h *handler) {
+		h.Writer = &lumberjack.Logger{
+			Filename:   name, // 文件名 file name
+			MaxSize:    500,  // 兆字节 megabytes
+			MaxBackups: 3,    // 保留文件数量 default 0 means not delete file
+			MaxAge:     28,   // 保留文件时间 days. delete file after MaxAge
+			Compress:   true, // 启用压缩 disabled by default
+		}
+	}
 }
-func WithLevels(levelConfig *trie.Tree[Level]) Option {
+
+// WithColor enable output color.
+//
+// 彩色输出日志.
+func WithColor() Option { return func(h *handler) { h.colorMode = 1 } }
+
+// WithNoColor disable output color.
+//
+// 禁用日志颜色.
+func WithNoColor() Option { return func(h *handler) { h.colorMode = 2 } }
+
+// WithJSON output the log as json format.
+//
+// JSON 格式输出.
+func WithJSON() Option { return WithJson(true) }
+
+// WithJson is a option. output the log as json format if this option is true.
+//
+// 是否以 json 格式输出.
+//
+// @deprecated use WithJSON instand.
+func WithJson(b bool) Option { return func(h *handler) { h.json = b } }
+
+// WithLevel set the default log level.
+//
+// 设置默认的日志输出级别.
+func WithLevel(level Level) Option {
+	return func(h *handler) { h.defaultLevel = level }
+}
+
+// WithLevels set log level by package name.
+//
+// 设置不同包的日志级别.
+func WithLevels(levelConfig LevelProvider) Option {
 	return func(h *handler) { h.levelConfig = levelConfig }
 }
 
-type handler struct {
-	io.Writer
-	json        bool
-	levelConfig *trie.Tree[Level]
+// WithFormat set the log format.
+//
+// 设置日志格式
+func WithFormat(format string) Option {
+	return func(h *handler) { h.format = format }
 }
 
+// handler a simple implements of the Handler interface.
+//
+// Handler 接口的一个简单实现.
+type handler struct {
+	io.Writer                  // output dest           输出目的地
+	colorMode    int           // colorMode 0=auto 1=forceColor 2=disableColor
+	json         bool          // if output json format 是否json格式输出
+	defaultLevel Level         // default level         默认级别
+	levelConfig  LevelProvider // level provider        为不同包设置不同级别
+	format       string        // log format            日志格式
+}
+
+// Output output the log Record to dest.
+//
+// 输出日志.
 func (h *handler) Output(r Record) {
-	if !h.Enable(r) {
+	if !h.enable(r) {
 		return
 	}
 	var msg string
-	if h.json {
-		msg = toJSON(r)
-		_, _ = h.Write([]byte(msg + "\n"))
+	if h.format != "" {
+		msg = formatRecord(h.format, &r)
+	} else if h.json {
+		msg = toJSON(r) + "\n"
 	} else {
-		msg = toString(r)
-		_, _ = h.Write([]byte(msg + "\n"))
+		msg = toString(r) + "\n"
 	}
+	if h.color() {
+		msg = defaultColor(r.Level, msg)
+	}
+	_, _ = h.Write([]byte(msg))
 	if r.Level >= LevelFatal {
 		os.Exit(int(r.Level))
 	}
@@ -61,9 +158,20 @@ func (h *handler) Output(r Record) {
 	}
 }
 
-func (h *handler) Enable(r Record) bool {
-	frame := caller.GetFrame(r.PC)
-	return r.Level >= h.levelConfig.Search(frame.Pkg)
+// enable return true if the Record should be output.
+//
+// 判断给定日志是否应当输出. 如果打印的日志级别(如给定日志是 Info 级别)不低于配置的日志级别(如配置 Debug 及以上级别均需打印)说明可以输出.
+func (h *handler) enable(r Record) bool {
+	if h.levelConfig != nil {
+		frame := caller.GetFrame(r.PC)           // 获取包名
+		level := h.levelConfig.Search(frame.Pkg) // 获取指定包的日志级别
+		return r.Level >= level                  // 使用指定包的级别
+	}
+	return r.Level >= h.defaultLevel // 使用默认级别
+}
+
+func (h *handler) color() bool {
+	return h.colorMode == 1 || (h.colorMode == 0 && supportColor(h.Writer))
 }
 
 var (
@@ -110,7 +218,7 @@ func toString(r Record) string {
 	frame := caller.GetFrame(r.PC)
 	var sb strings.Builder
 	// 2006-01-02T15:04:05.000-07:00 NOTICE pkg.fun path/file.go:11 key=value Message
-	sb.WriteString(fmt.Sprintf("%s %s %s.%s %s/%s:%d ",
+	sb.WriteString(fmt.Sprintf("%s %-5s %s.%s %s/%s:%d ",
 		time, r.Level, ifEmpty(frame.Pkg, "?"), ifEmpty(frame.Fun, "?"),
 		ifEmpty(frame.Path, "?"), ifEmpty(frame.File, "???"), frame.Line))
 	attrs := r.Attr
