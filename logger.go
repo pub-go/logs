@@ -70,6 +70,6 @@ func (l *logger) Log(ctx context.Context, callDepth int, level Level, format str
 		PC:     caller.PC(callDepth + 1),
 		Format: format,
 		Args:   args,
-		Attr:   append(l.attrs, kv.Get(ctx)...),
+		Attr:   kv.Uniq(append(l.attrs, kv.Get(ctx)...)),
 	})
 }

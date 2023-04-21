@@ -10,8 +10,8 @@
 ## Logger 前端
 
 ### 全局函数
-- 基本用法
 
+#### 基本用法
 ```go
 import	"code.gopub.tech/logs"
 
@@ -24,17 +24,18 @@ logs.Error()
 logs.Panic() // 输出日志后抛出 panic
 logs.Fatal() // 输出日志后终止程序 os.Exit
 ```
-- 关联 kv
 
+#### 关联 kv
 ```go
 // 在 Logger 上关联 kv
-logs.With(key, value) Logger
+// With() returns a Logger
+logs.With(key, value).Info(ctx, "")
+
 // 在 ctx 上关联 kv
 ctx = kv.Add(ctx, key, value)
-
 ```
-- 设置全局默认 Logger
 
+#### 设置全局默认 Logger
 ```go
 logs.SetDefault(Logger)
 ```
@@ -75,12 +76,14 @@ type Handler interface {
 ### 内置默认的 Handler 实现
 
 ```go
+// create a default handler.
+// 默认处理器, 输出到 stderr, 自动检测颜色, Info 级别.
 logs.NewHandler(opts...)
 // Options:
-logs.WithWriter(io.Writer)        // 输出目的地 默认 stderr
-logs.WithJson(bool)               // 是否输出 json 格式 默认 false
-logs.WithLevel(level Level)       // 默认 Info 级别
-logs.WithLevels(*trie.Tree[Level])// 为不同包名配置不同级别
+logs.WithWriter(io.Writer)     // 输出目的地 默认 stderr
+logs.WithJSON()                // 是否输出 json 格式 默认 false
+logs.WithLevel(level Level)    // 默认 Info 级别
+logs.WithLevels(LivelProvider) // 为不同包名配置不同级别
 ```
 
 
