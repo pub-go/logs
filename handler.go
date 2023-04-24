@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"code.gopub.tech/logs/pkg/caller"
-	"code.gopub.tech/logs/pkg/trie"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -43,7 +42,7 @@ func NewHandler(opt ...Option) Handler {
 	h := &handler{
 		Writer:       log.Writer(),
 		defaultLevel: LevelInfo,
-		levelConfig:  trie.NewTree(LevelInfo),
+		levelConfig:  nil,
 	}
 	for _, op := range opt {
 		op(h)
@@ -99,22 +98,60 @@ func WithJSON() Option { return WithJson(true) }
 func WithJson(b bool) Option { return func(h *handler) { h.json = b } }
 
 // WithLevel set the default log level.
+// If you want set deffirent level for diffenrent package, consider use `WithLevels`
 //
-// 设置默认的日志输出级别.
+// 设置默认的日志输出级别. 如需为不同包设置不同的日志级别, 请参见 `WithLevels` 选项.
 func WithLevel(level Level) Option {
 	return func(h *handler) { h.defaultLevel = level }
 }
 
 // WithLevels set log level by package name.
+// if this option is set, the `WithLevel` option would be ignored.
 //
-// 设置不同包的日志级别.
+// 设置不同包的日志级别. 如果设置了该选项，`WithLevel` 选项将被忽略.
+//
+// @param LevelProvider is a interface, which has a method called `Search`.
+// It returns a log level for a given input package name.
+// 参数 LevelProvider 是一个接口, 为指定的包名返回日志级别.
+//
+// @see 参见 [trie.Tree](pkg/trie/tree.go) 前缀树
 func WithLevels(levelConfig LevelProvider) Option {
 	return func(h *handler) { h.levelConfig = levelConfig }
 }
 
 // WithFormat set the log format.
+// [experimental] implements by regular expressions,
+// performance may not be very good.
 //
-// 设置日志格式
+// [实验性]设置日志格式. 使用正则表达式实现, 性能可能不是很好.
+//
+//    placeholder     args        describe
+//    %n or %N        N/A       print a newline
+//    %l or %level    (-?\d+)?  print the log level; the args set print width
+//    %F or %FILE     N/A       print the file name
+//    %File or %file
+//    %L              N/A       print the line number
+//    %fun            N/A       print the function name
+//    %P / %P[Kk][Gg] N/A       print the package name
+//    %path           N/A       print the file path
+//    %T         (date-format)  print time with date-format
+//    %t           ([num]?s)?   print timestampt
+//    %X          (key-name)    print the Attr
+//    %X             N/A        print all Attr
+//    %Attr {KV}{prefix}{jointer}{suffix} range print Attr
+//       %K                     print the key
+//       %V or %Vjson           print the value or json format of the value
+//    %M or %m       N/A        print the log message
+//    {left}%or{right}          if left is empty then print right
+//    %Q or %q       (str)      print the quote form for str
+//
+//    JSON format:
+//    {"ts":%t(ns),"time":%Q(%T(2006-01-02T15:04:05.000000000-07:00)),"level":%Q(%level),
+//    "pkg":%Q(%Pkg),"fun":%Q(%fun),"path":%Q(%path),"file":%Q(%F),"line":%L,
+//    %Attr{%Q(%K):%Vjson}{}{,}{,}"msg":%Q(%m)}%n
+//
+//    String format:
+//    %T(2006-01-02T15:04:05.000-07:00) %level(-5) {%Pkg}%or{?}.{%fun}%or{?} {%path}%or{?}/{%F}%or{???}:%L %X %m%n
 func WithFormat(format string) Option {
 	return func(h *handler) { h.format = format }
 }

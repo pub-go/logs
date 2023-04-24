@@ -10,7 +10,7 @@ import (
 	"code.gopub.tech/logs/pkg/caller"
 )
 
-type Replacer struct {
+type replacer struct {
 	name string
 	reg  *regexp.Regexp
 	fun  func(s string, r *Record) string
@@ -19,7 +19,7 @@ type Replacer struct {
 var (
 	regKey   = regexp.MustCompile(`%K`)
 	regValue = regexp.MustCompile(`%V(json)?`)
-	replaces = []*Replacer{
+	replaces = []*replacer{
 		// 换行
 		{name: "newline", reg: regexp.MustCompile(`%[Nn]`), fun: func(s string, r *Record) string {
 			return "\n"
