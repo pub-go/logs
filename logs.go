@@ -47,3 +47,7 @@ func Fatal(ctx context.Context, format string, args ...any) {
 func Log(ctx context.Context, level Level, format string, args ...any) {
 	Default().Log(ctx, 1, level, format, args...)
 }
+
+func Enable(level Level) bool {
+	return Default().EnableDepth(level, 1)
+}

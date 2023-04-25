@@ -25,14 +25,44 @@ logs.Panic() // 输出日志后抛出 panic
 logs.Fatal() // 输出日志后终止程序 os.Exit
 ```
 
-#### 关联 kv
+#### 高级用法
 ```go
+// [kv]
 // 在 Logger 上关联 kv
 // With() returns a Logger
-logs.With(key, value).Info(ctx, "")
+logs.With(key, value).Info(ctx, "xxx") // key=value xxx
 
 // 在 ctx 上关联 kv
 ctx = kv.Add(ctx, key, value)
+logs.Info(ctx, "xxx")// key=value xxx
+
+// [leven enable]
+// 判断日志级别
+if logs.Enable(logs.LevelDebug) {
+	logs.Debug(ctx, "debug log")
+}
+
+// [marshal args as json]
+// 输出参数为 json 格式
+type MyStruct struct{
+	// ...
+}
+var myStruct MyStruct
+
+// 不使用 arg.JSON() 的不推荐写法
+b,_ := json.Marshal(myStruct) // 无论日志级别配置为多高 都会执行这行 浪费性能
+lgos.Debug(ctx,"my struct json = %s", b)
+
+// 不使用 arg.JSON() 的正确写法
+if logs.Enable(logs.LevelDebug) {
+	b,_ := json.Marshal(myStruct) // 已经判断日志级别
+	lgos.Debug(ctx,"my struct json = %s", b)
+}
+
+// 使用 arg.JSON() 的简便写法
+// 借助 arg.JSON() 包装，无需使用 Enable 判断，会自动延迟到 toString 时才调用 json.Marshal
+logs.Debug(ctx, "my struct json = %v", arg.JSON(myStruct))
+// 注意应当使用 %v, %s 等格式化动词, 而不能使用 %#v, 否则会打印出 arg.JSON 返回的内部包装对象 &arg.Arg{data:xxx}
 ```
 
 #### 设置全局默认 Logger
@@ -56,6 +86,8 @@ type Logger interface {
 	// Log 打印日志接口
 	// callDepth: 0=caller position
 	Log(ctx context.Context, callDepth int, level Level, format string, args ...any)
+	Enable(level Level) bool
+	EnableDepth(level Level, callDepth int) bool
 }
 ```
 
@@ -71,6 +103,7 @@ logs.NewLogger(handler) // 需要传入 handler 用于日志后端处理
 ```go
 type Handler interface {
 	Output(Record)
+	Enable(level Level, pc uintptr) bool
 }
 ```
 ### 内置默认的 Handler 实现
@@ -81,9 +114,14 @@ type Handler interface {
 logs.NewHandler(opts...)
 // Options:
 logs.WithWriter(io.Writer)     // 输出目的地 默认 stderr
-logs.WithJSON()                // 是否输出 json 格式 默认 false
+logs.WithFile(fileName string) // 自动轮转日志文件
+logs.WithColor()               // 强制开启颜色
+logs.WithNoColor()             // 强制关闭颜色
+logs.WithName(loggerName)      // 设置logger名称 默认为空则使用日志打印处的包名
 logs.WithLevel(level Level)    // 默认 Info 级别
-logs.WithLevels(LivelProvider) // 为不同包名配置不同级别
+logs.WithLevels(LevelProvider) // 为不同包名配置不同级别
+logs.WithFormatFun(fn)         // 自定义日志格式
+logs.WithJSON()                // json 格式输出日志
 ```
 
 

@@ -12,7 +12,30 @@ import (
 
 var ctx = context.Background()
 
+func assert(t *testing.T, cond bool, args ...any) {
+	t.Helper()
+	if !cond {
+		t.Error("assert fail")
+	}
+}
+
+type S struct{}
+
+func (*S) Func() {
+	logs.Info(ctx, "log in struct method.")
+}
+
 func TestLog(t *testing.T) {
+	assert(t, logs.Enable(logs.LevelALL) == false)
+	assert(t, logs.Enable(logs.LevelTrace) == false)
+	assert(t, logs.Enable(logs.LevelDebug) == false)
+	assert(t, logs.Enable(logs.LevelInfo))
+	assert(t, logs.Enable(logs.LevelNotice))
+	assert(t, logs.Enable(logs.LevelWarn))
+	assert(t, logs.Enable(logs.LevelError))
+	assert(t, logs.Enable(logs.LevelPanic))
+	assert(t, logs.Enable(logs.LevelFatal))
+
 	var sb bytes.Buffer // &sb is io.Writer
 	logger := logs.NewLogger(logs.NewHandler(
 		logs.WithWriter(&sb), // output, default stderr
@@ -53,6 +76,13 @@ func TestLog(t *testing.T) {
 		}()
 		logs.Panic(ctx, "PanicMsg")
 	}()
+	((*S)(nil)).Func() // log Record fun: (*S).Func
 	t.Log(sb.String())
 	// logs.Fatal(ctx, "Fatalmsg")
+
+	assert(t, logs.Enable(logs.LevelDebug))                     // code.gopub.tech/logs_test this package enable Debug level.
+	assert(t, logger.Enable(logs.LevelDebug))                   // code.gopub.tech/logs_test this package enable Debug level.
+	assert(t, logger.EnableDepth(logs.LevelDebug, 1) == false)  // callDepth=1 --> tesing.tRunner
+	assert(t, logger.EnableDepth(logs.LevelDebug, -1) == false) // callDepth=-1 --> logs.EnableDepth
+
 }

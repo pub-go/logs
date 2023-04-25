@@ -1,5 +1,5 @@
 package logs
 
 type LevelProvider interface {
-	Search(pkg string) Level
+	Search(loggerName string) Level
 }

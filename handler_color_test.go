@@ -13,8 +13,9 @@ func Test_defaultColor(t *testing.T) {
 		want string
 	}{
 		{name: "Trace", args: args{level: LevelTrace, msg: "Hello"}, want: "\033[37mHello\033[0m"},
-		{name: "Debug", args: args{level: LevelDebug, msg: "Hello"}, want: "\033[34mHello\033[0m"},
+		{name: "Debug", args: args{level: LevelDebug, msg: "Hello"}, want: "\033[94mHello\033[0m"},
 		{name: "Info", args: args{level: LevelInfo, msg: "Hello"}, want: "\033[96mHello\033[0m"},
+		{name: "Notice", args: args{level: LevelNotice, msg: "Hello"}, want: "\033[92mHello\033[0m"},
 		{name: "Warn", args: args{level: LevelWarn, msg: "Hello"}, want: "\033[33mHello\033[0m"},
 		{name: "Error", args: args{level: LevelError, msg: "Hello"}, want: "\033[31mHello\033[0m"},
 		{name: "Panic", args: args{level: LevelPanic, msg: "Hello"}, want: "\033[91mHello\033[0m"},
