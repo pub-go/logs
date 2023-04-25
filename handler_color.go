@@ -8,7 +8,7 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-func supportColor(out io.Writer) bool {
+func isTerminal(out io.Writer) bool {
 	isTerm := true
 	if w, ok := out.(*os.File); !ok || os.Getenv("TERM") == "dumb" ||
 		(!isatty.IsTerminal(w.Fd()) && !isatty.IsCygwinTerminal(w.Fd())) {
@@ -18,13 +18,14 @@ func supportColor(out io.Writer) bool {
 }
 
 var (
-	fatalColor = color.New(color.FgHiRed, color.Bold) // 高亮红色+加粗
-	panicColor = color.New(color.FgHiRed)             // 高亮红色
-	errorColor = color.New(color.FgRed)               // 红色
-	warnColor  = color.New(color.FgYellow)            // 黄色
-	infoColor  = color.New(color.FgHiCyan)            // 青色
-	debugColor = color.New(color.FgBlue)              // 蓝色
-	traceColor = color.New(color.FgWhite)             // 白色
+	fatalColor  = color.New(color.FgHiRed, color.Bold) // 高亮红色+加粗
+	panicColor  = color.New(color.FgHiRed)             // 高亮红色
+	errorColor  = color.New(color.FgRed)               // 红色
+	warnColor   = color.New(color.FgYellow)            // 黄色
+	noticeColor = color.New(color.FgHiGreen)           // 高亮绿色
+	infoColor   = color.New(color.FgHiCyan)            // 高亮青色
+	debugColor  = color.New(color.FgHiBlue)            // 高亮蓝色
+	traceColor  = color.New(color.FgWhite)             // 白色
 )
 
 func init() { // if the handler's colorMode=force we need enable color
@@ -33,6 +34,7 @@ func init() { // if the handler's colorMode=force we need enable color
 		panicColor,
 		errorColor,
 		warnColor,
+		noticeColor,
 		infoColor,
 		debugColor,
 		traceColor,
@@ -51,6 +53,8 @@ func defaultColor(level Level, msg string) string {
 		return errorColor.Sprint(msg)
 	case level >= LevelWarn:
 		return warnColor.Sprint(msg)
+	case level >= LevelNotice:
+		return noticeColor.Sprint(msg)
 	case level >= LevelInfo:
 		return infoColor.Sprint(msg)
 	case level >= LevelDebug:

@@ -21,6 +21,7 @@ type Handler interface {
 	//
 	// 输出日志.
 	Output(Record)
+	Enable(level Level, pc uintptr) bool
 }
 
 type Handlers []Handler
@@ -29,6 +30,15 @@ func (s Handlers) Output(r Record) {
 	for _, h := range s {
 		h.Output(r)
 	}
+}
+
+func (s Handlers) Enable(level Level, pc uintptr) bool {
+	for _, h := range s {
+		if h.Enable(level, pc) {
+			return true
+		}
+	}
+	return false
 }
 
 func CombineHandlers(h ...Handler) Handler {
@@ -41,8 +51,10 @@ func CombineHandlers(h ...Handler) Handler {
 func NewHandler(opt ...Option) Handler {
 	h := &handler{
 		Writer:       log.Writer(),
+		colorMode:    0, // auto
 		defaultLevel: LevelInfo,
 		levelConfig:  nil,
+		format:       toString,
 	}
 	for _, op := range opt {
 		op(h)
@@ -85,17 +97,10 @@ func WithColor() Option { return func(h *handler) { h.colorMode = 1 } }
 // 禁用日志颜色.
 func WithNoColor() Option { return func(h *handler) { h.colorMode = 2 } }
 
-// WithJSON output the log as json format.
+// WithName set the logger name.
 //
-// JSON 格式输出.
-func WithJSON() Option { return WithJson(true) }
-
-// WithJson is a option. output the log as json format if this option is true.
-//
-// 是否以 json 格式输出.
-//
-// @deprecated use WithJSON instand.
-func WithJson(b bool) Option { return func(h *handler) { h.json = b } }
+// 设置 logger 名称.
+func WithName(name string) Option { return func(h *handler) { h.name = name } }
 
 // WithLevel set the default log level.
 // If you want set deffirent level for diffenrent package, consider use `WithLevels`
@@ -119,41 +124,75 @@ func WithLevels(levelConfig LevelProvider) Option {
 	return func(h *handler) { h.levelConfig = levelConfig }
 }
 
+// FormatFun format a log Record to string. the return string should ends with a '\n' as usual.
+//
+// 格式化一条日志记录. 通常, 返回的字符串应当以换行 '\n' 符结尾.
+type FormatFun func(*Record) string
+
+// WithFormatFun set the format function.
+//
+// 设置格式化日志函数.
+func WithFormatFun(fn FormatFun) Option { return func(h *handler) { h.format = fn } }
+
+// WithJSON output the log as json format.
+//
+// JSON 格式输出.
+func WithJSON() Option { return WithJson(true) }
+
+// WithJson is a option. output the log as json format if this option is true.
+//
+// 是否以 json 格式输出.
+//
+// @deprecated use WithJSON instand.
+func WithJson(b bool) Option {
+	return func(h *handler) {
+		if b {
+			h.format = func(r *Record) string {
+				return toJSON(r)
+			}
+		}
+	}
+}
+
 // WithFormat set the log format.
 // [experimental] implements by regular expressions,
 // performance may not be very good.
 //
 // [实验性]设置日志格式. 使用正则表达式实现, 性能可能不是很好.
 //
-//    placeholder     args        describe
-//    %n or %N        N/A       print a newline
-//    %l or %level    (-?\d+)?  print the log level; the args set print width
-//    %F or %FILE     N/A       print the file name
-//    %File or %file
-//    %L              N/A       print the line number
-//    %fun            N/A       print the function name
-//    %P / %P[Kk][Gg] N/A       print the package name
-//    %path           N/A       print the file path
-//    %T         (date-format)  print time with date-format
-//    %t           ([num]?s)?   print timestampt
-//    %X          (key-name)    print the Attr
-//    %X             N/A        print all Attr
-//    %Attr {KV}{prefix}{jointer}{suffix} range print Attr
-//       %K                     print the key
-//       %V or %Vjson           print the value or json format of the value
-//    %M or %m       N/A        print the log message
-//    {left}%or{right}          if left is empty then print right
-//    %Q or %q       (str)      print the quote form for str
+//	placeholder     args        describe
+//	%n or %N        N/A       print a newline
+//	%l or %level    (-?\d+)?  print the log level; the args set print width
+//	%F or %FILE     N/A       print the file name
+//	%File or %file
+//	%L              N/A       print the line number
+//	%fun            N/A       print the function name
+//	%P / %P[Kk][Gg] N/A       print the package name
+//	%path           N/A       print the file path
+//	%T         (date-format)  print time with date-format
+//	%t           ([num]?s)?   print timestampt
+//	%X          (key-name)    print the Attr
+//	%X             N/A        print all Attr
+//	%Attr {KV}{prefix}{jointer}{suffix} range print Attr
+//	   %K                     print the key
+//	   %V or %Vjson           print the value or json format of the value
+//	%M or %m       N/A        print the log message
+//	{left}%or{right}          if left is empty then print right
+//	%Q or %q       (str)      print the quote form for str
 //
-//    JSON format:
-//    {"ts":%t(ns),"time":%Q(%T(2006-01-02T15:04:05.000000000-07:00)),"level":%Q(%level),
-//    "pkg":%Q(%Pkg),"fun":%Q(%fun),"path":%Q(%path),"file":%Q(%F),"line":%L,
-//    %Attr{%Q(%K):%Vjson}{}{,}{,}"msg":%Q(%m)}%n
+//	JSON format:
+//	{"ts":%t(ns),"time":%Q(%T(2006-01-02T15:04:05.000000000-07:00)),"level":%Q(%level),
+//	"pkg":%Q(%Pkg),"fun":%Q(%fun),"path":%Q(%path),"file":%Q(%F),"line":%L,
+//	%Attr{%Q(%K):%Vjson}{}{,}{,}"msg":%Q(%m)}%n
 //
-//    String format:
-//    %T(2006-01-02T15:04:05.000-07:00) %level(-5) {%Pkg}%or{?}.{%fun}%or{?} {%path}%or{?}/{%F}%or{???}:%L %X %m%n
+//	String format:
+//	%T(2006-01-02T15:04:05.000-07:00) %level(-5) {%Pkg}%or{?}.{%fun}%or{?} {%path}%or{?}/{%F}%or{???}:%L %X %m%n
 func WithFormat(format string) Option {
-	return func(h *handler) { h.format = format }
+	return func(h *handler) {
+		h.format = func(r *Record) string {
+			return formatRecord(format, r)
+		}
+	}
 }
 
 // handler a simple implements of the Handler interface.
@@ -162,27 +201,23 @@ func WithFormat(format string) Option {
 type handler struct {
 	io.Writer                  // output dest           输出目的地
 	colorMode    int           // colorMode 0=auto 1=forceColor 2=disableColor
-	json         bool          // if output json format 是否json格式输出
+	name         string        // logger name
 	defaultLevel Level         // default level         默认级别
 	levelConfig  LevelProvider // level provider        为不同包设置不同级别
-	format       string        // log format            日志格式
+	format       FormatFun     // format Record to string
 }
 
 // Output output the log Record to dest.
 //
 // 输出日志.
 func (h *handler) Output(r Record) {
-	if !h.enable(r) {
+	if !h.Enable(r.Level, r.PC) {
 		return
 	}
-	var msg string
-	if h.format != "" {
-		msg = formatRecord(h.format, &r)
-	} else if h.json {
-		msg = toJSON(r) + "\n"
-	} else {
-		msg = toString(r) + "\n"
+	if h.format == nil {
+		h.format = toString
 	}
+	var msg = h.format(&r)
 	if h.color() {
 		msg = defaultColor(r.Level, msg)
 	}
@@ -198,17 +233,21 @@ func (h *handler) Output(r Record) {
 // enable return true if the Record should be output.
 //
 // 判断给定日志是否应当输出. 如果打印的日志级别(如给定日志是 Info 级别)不低于配置的日志级别(如配置 Debug 及以上级别均需打印)说明可以输出.
-func (h *handler) enable(r Record) bool {
+func (h *handler) Enable(level Level, pc uintptr) bool {
 	if h.levelConfig != nil {
-		frame := caller.GetFrame(r.PC)           // 获取包名
-		level := h.levelConfig.Search(frame.Pkg) // 获取指定包的日志级别
-		return r.Level >= level                  // 使用指定包的级别
+		var name = h.name // 默认用 logger name
+		if name == "" {   // 如果没有指定 logger name
+			frame := caller.GetFrame(pc)
+			name = frame.Pkg // 就用包名
+		}
+		minLevel := h.levelConfig.Search(name)
+		return level >= minLevel
 	}
-	return r.Level >= h.defaultLevel // 使用默认级别
+	return level >= h.defaultLevel
 }
 
 func (h *handler) color() bool {
-	return h.colorMode == 1 || (h.colorMode == 0 && supportColor(h.Writer))
+	return h.colorMode == 1 || (h.colorMode == 0 && isTerminal(h.Writer))
 }
 
 var (
@@ -216,7 +255,7 @@ var (
 	timeFormatOnText = "2006-01-02T15:04:05.000-07:00"
 )
 
-func toJSON(r Record) string {
+func toJSON(r *Record) string {
 	var sb strings.Builder
 	// {"time":"","level":"","pkg":"","fun":"","path":"","file":"","line":0,"msg":"","key":"value"}
 	sb.WriteString(`{"ts":`)
@@ -246,11 +285,11 @@ func toJSON(r Record) string {
 	sb.WriteString(`,"msg":`)
 	msg := fmt.Sprintf(r.Format, r.Args...)
 	sb.WriteString(strconv.Quote(msg))
-	sb.WriteString("}")
+	sb.WriteString("}\n")
 	return sb.String()
 }
 
-func toString(r Record) string {
+func toString(r *Record) string {
 	time := r.Time.Format(timeFormatOnText)
 	frame := caller.GetFrame(r.PC)
 	var sb strings.Builder
@@ -264,6 +303,7 @@ func toString(r Record) string {
 		attrs = attrs[2:]
 	}
 	sb.WriteString(fmt.Sprintf(r.Format, r.Args...))
+	sb.WriteRune('\n')
 	return sb.String()
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"code.gopub.tech/logs/pkg/caller"
+	"code.gopub.tech/logs/pkg/trie"
 )
 
 var (
@@ -113,19 +114,19 @@ func Test_toJSON(t *testing.T) {
 		{
 			name: "case1",
 			args: args{r: r0},
-			want: fmt.Sprintf(`{"ts":%d,"time":"%s","level":"INFO","pkg":"","fun":"","path":"","file":"","line":0,"key":"value","msg":"Hello, World!"}`,
+			want: fmt.Sprintf(`{"ts":%d,"time":"%s","level":"INFO","pkg":"","fun":"","path":"","file":"","line":0,"key":"value","msg":"Hello, World!"}`+"\n",
 				r0.Time.UnixNano(), r0.Time.Format(timeFormatOnJSON)),
 		},
 		{
 			name: "case2",
 			args: args{r: r1},
-			want: fmt.Sprintf(`{"ts":%d,"time":"%s","level":"INFO","pkg":"code.gopub.tech/logs/pkg/caller","fun":"PC","path":"%s","file":"pc.go","line":10,"key":"value","num":42,"msg":"Hello, World!"}`,
+			want: fmt.Sprintf(`{"ts":%d,"time":"%s","level":"INFO","pkg":"code.gopub.tech/logs/pkg/caller","fun":"PC","path":"%s","file":"pc.go","line":10,"key":"value","num":42,"msg":"Hello, World!"}`+"\n",
 				r1.Time.UnixNano(), r1.Time.Format(timeFormatOnJSON), dir),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := toJSON(tt.args.r); string(got) != tt.want {
+			if got := toJSON(&tt.args.r); string(got) != tt.want {
 				t.Errorf("toJSON() = %v, want %v", string(got), tt.want)
 			}
 		})
@@ -144,18 +145,65 @@ func Test_toString(t *testing.T) {
 		{
 			name: "case1-unknown-file",
 			args: args{r: r0},
-			want: fmt.Sprintf("%s INFO  ?.? ?/???:0 key=value Hello, World!", r0.Time.Format(timeFormatOnText)),
+			want: fmt.Sprintf("%s INFO  ?.? ?/???:0 key=value Hello, World!\n", r0.Time.Format(timeFormatOnText)),
 		},
 		{
 			name: "case2-with-pc-file",
 			args: args{r: r1},
-			want: fmt.Sprintf("%s INFO  code.gopub.tech/logs/pkg/caller.PC %s/pc.go:10 key=value num=42 Hello, World!", r1.Time.Format(timeFormatOnText), dir),
+			want: fmt.Sprintf("%s INFO  code.gopub.tech/logs/pkg/caller.PC %s/pc.go:10 key=value num=42 Hello, World!\n", r1.Time.Format(timeFormatOnText), dir),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := toString(tt.args.r); string(got) != tt.want {
+			if got := toString(&tt.args.r); string(got) != tt.want {
 				t.Errorf("toString() = %v, want %v", string(got), tt.want)
+			}
+		})
+	}
+}
+
+func Test_handler_Enable(t *testing.T) {
+	type fields struct {
+		name         string
+		defaultLevel Level
+		levelConfig  LevelProvider
+	}
+	type args struct {
+		level Level
+		pc    uintptr
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   bool
+	}{
+		{name: "debug-not-enable", fields: fields{}, args: args{level: LevelDebug}, want: false},
+		{name: "info-enable", fields: fields{}, args: args{level: LevelInfo}, want: true},
+
+		{name: "levelProvider/loggerName-info", fields: fields{name: "loggerName",
+			levelConfig: trie.NewTree(LevelInfo).Insert("loggerName", LevelWarn)}, args: args{level: LevelInfo}, want: false},
+		{name: "levelProvider/loggerName-warn", fields: fields{name: "loggerName",
+			levelConfig: trie.NewTree(LevelInfo).Insert("loggerName", LevelWarn)}, args: args{level: LevelWarn}, want: true},
+
+		{name: "levelProvider/pkgName", fields: fields{levelConfig: trie.NewTree(LevelInfo)},
+			args: args{level: LevelInfo, pc: caller.PC(0)}, want: true},
+		{name: "levelProvider/pkgName/logs", fields: fields{
+			levelConfig: trie.NewTree(LevelInfo).Insert("code.gopub.tech/logs", LevelWarn)},
+			args: args{level: LevelInfo, pc: caller.PC(0)}, want: false},
+		{name: "levelProvider/pkgName/logs/warn", fields: fields{
+			levelConfig: trie.NewTree(LevelInfo).Insert("code.gopub.tech/logs", LevelWarn)},
+			args: args{level: LevelWarn, pc: caller.PC(0)}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := &handler{
+				name:         tt.fields.name,
+				defaultLevel: tt.fields.defaultLevel,
+				levelConfig:  tt.fields.levelConfig,
+			}
+			if got := h.Enable(tt.args.level, tt.args.pc); got != tt.want {
+				t.Errorf("handler.Enable() = %v, want %v", got, tt.want)
 			}
 		})
 	}

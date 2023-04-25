@@ -1,18 +1,26 @@
 package logs
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 type Level int
 
 const (
-	LevelTrace  Level = (iota - 2) * 10 // 用于追踪执行路径 -20
-	LevelDebug                          // 用于调试输出 -10
-	LevelInfo                           // 用于正常输出 0=默认值
-	LevelNotice                         // 用于引起注视 10
-	LevelWarn                           // 用于警告提醒 20
-	LevelError                          // 用于出错提醒 30
-	LevelPanic                          // 用于出错提醒并抛出 panic 40
-	LevelFatal                          // 用于出错提醒并终止程序 50
+	LevelTrace  Level = (iota - 2) * 10 // 用于[追踪]执行路径 -20
+	LevelDebug                          // 用于[调试]输出    -10
+	LevelInfo                           // 用于[信息]输出    0=默认值
+	LevelNotice                         // 用于[注意]引起注视 10
+	LevelWarn                           // 用于[警告]提醒    20
+	LevelError                          // 用于[错误]提醒    30
+	LevelPanic                          // 用于[恐慌]出错提醒并抛出 panic 40
+	LevelFatal                          // 用于[致命]出错提醒并终止程序    50
+)
+
+const (
+	LevelALL Level = math.MinInt // [所有]
+	LevelOFF Level = math.MaxInt // [关闭]
 )
 
 func (l Level) String() string {

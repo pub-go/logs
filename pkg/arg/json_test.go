@@ -24,4 +24,9 @@ func TestJSON(t *testing.T) {
 			t.Errorf("got= %q want = %q", got, tCase.want)
 		}
 	}
+	var m struct{ ID int } = struct{ ID int }{ID: 1}
+	t.Logf("%%#v: %s", fmt.Sprintf("%#v", arg.JSON(m)))
+	t.Logf("%%+v: %s", fmt.Sprintf("%+v", arg.JSON(m)))
+	t.Logf(" %%v: %s", fmt.Sprintf("%v", arg.JSON(m)))
+	t.Logf(" %%s: %s", fmt.Sprintf("%s", arg.JSON(m)))
 }

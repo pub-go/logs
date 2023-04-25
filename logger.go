@@ -21,6 +21,8 @@ type Logger interface {
 	// Log 打印日志接口
 	// callDepth: 0=caller position
 	Log(ctx context.Context, callDepth int, level Level, format string, args ...any)
+	Enable(level Level) bool
+	EnableDepth(level Level, callDepth int) bool
 }
 
 func NewLogger(h Handler) Logger {
@@ -72,4 +74,12 @@ func (l *logger) Log(ctx context.Context, callDepth int, level Level, format str
 		Args:   args,
 		Attr:   kv.Uniq(append(l.attrs, kv.Get(ctx)...)),
 	})
+}
+
+func (l *logger) Enable(level Level) bool {
+	return l.EnableDepth(level, 1)
+}
+
+func (l *logger) EnableDepth(level Level, callDepth int) bool {
+	return l.h.Enable(level, caller.PC(callDepth+1))
 }
