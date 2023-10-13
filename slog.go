@@ -21,7 +21,8 @@ var _ slog.Handler = (*SlogHandler)(nil)
 //	// ...
 //	h := logs.NewHandler(logs.WithWriter(os.Stderr), logs.WithJSON())
 //	logger := logs.NewLogger(h)
-//	logs.NewSlogHandler().SetLogger(logger)
+//	sh := logs.NewSlogHandler().SetLogger(logger)
+//	slog.SetDefault(slog.New(sh))
 type SlogHandler struct {
 	logger Logger      // 关联的 Logger
 	attrs  []slog.Attr // 所有的属性

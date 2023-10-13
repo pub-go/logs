@@ -125,5 +125,19 @@ logs.WithJSON()                // json 格式输出日志
 ```
 
 
+## log/slog 兼容
+```go
+	import "code.gopub.tech/logs"
+	// use logs.Default()
+	slog.SetDefault(slog.New(logs.NewSlogHandler()))
+	slog.Info("Hello, Log", "key", "value")
+	// ...
+	h := logs.NewHandler(logs.WithWriter(os.Stderr), logs.WithJSON())
+	logger := logs.NewLogger(h)
+	sh := logs.NewSlogHandler().SetLogger(logger)
+	slog.SetDefault(slog.New(sh))
+	slog.Info("JSON Log")
+```
+
 ## License
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fpub-go%2Flogs.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fpub-go%2Flogs?ref=badge_large)
