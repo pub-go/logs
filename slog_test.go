@@ -4,6 +4,7 @@ package logs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"code.gopub.tech/logs/pkg/caller"
+	"code.gopub.tech/logs/pkg/trie"
 )
 
 func ExampleSlogHandler() {
@@ -221,5 +223,30 @@ func Test_fromSlogLevel(t *testing.T) {
 				t.Errorf("fromSlogLevel() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSlogHandlerGetLogger(t *testing.T) {
+	var buf bytes.Buffer
+	var l = NewLogger(NewHandler(WithWriter(&buf)))
+	var sh = NewSlogHandler().SetLogger(l)
+	sh = sh.WithAttrs([]slog.Attr{
+		slog.Int("int", 1),
+		slog.String("str", "abc"),
+	}).(*SlogHandler)
+	sh.GetLogger().Info(context.Background(), "msg")
+
+	msg := buf.String()
+	t.Log(msg)
+	if !strings.Contains(msg, "int=1 str=abc msg") {
+		t.Fail()
+	}
+}
+
+func TestEnable(t *testing.T) {
+	var l = NewLogger(NewHandler(WithLevels(trie.NewTree(LevelInfo).Insert("code.gopub.tech", LevelWarn))))
+	var sh = NewSlogHandler().SetLogger(l)
+	if sh.Enabled(context.Background(), slog.LevelInfo) {
+		t.Fail()
 	}
 }

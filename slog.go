@@ -31,7 +31,7 @@ type SlogHandler struct {
 
 // NewSlogHandler 新建一个实现了 slog.Handler 的实例
 func NewSlogHandler() *SlogHandler {
-	return new(SlogHandler).SetLogger(Default())
+	return new(SlogHandler)
 }
 
 // SetLogger 设置关联的 Logger
@@ -40,9 +40,53 @@ func (s *SlogHandler) SetLogger(logger Logger) *SlogHandler {
 	return s
 }
 
+// GetLogger 获取 SlogHandler 上关联的 Logger
+// (如果已有 Attrs 也会一并返回，就像在 Logger 上调用了 With 一样)
+func (s *SlogHandler) GetLogger() Logger {
+	var l = s.getLogger()
+	// 将 Attrs 添加到 Logger 上
+	for _, attr := range removeEmptyGroup(s.attrs) {
+		l = l.With(attr.Key, value(attr.Value))
+	}
+	return l
+}
+
+func (s *SlogHandler) getLogger() Logger {
+	var l = s.logger
+	if l == nil {
+		l = Default()
+	}
+	return l
+}
+
+// removeEmptyGroup 最终处理时，需要移除空的 Group
+func removeEmptyGroup(attrs []slog.Attr) []slog.Attr {
+	var ret = make([]slog.Attr, 0, len(attrs))
+	for _, attr := range attrs {
+		av := attr.Value
+		if av.Kind() == slog.KindGroup {
+			if len(av.Group()) == 0 {
+				// 空的 group 直接跳过
+				continue
+			}
+			// 非空的 group 对包含的项目做处理
+			g := removeEmptyGroup(av.Group())
+			if len(g) == 0 {
+				// 处理后没有条目了 也跳过
+				continue
+			}
+			// 处理后还有内容 更新 Value
+			attr.Value = slog.GroupValue(g...)
+		}
+		ret = append(ret, attr)
+	}
+	return ret
+}
+
 // Enabled implements slog.Handler.
-func (*SlogHandler) Enabled(_ context.Context, l slog.Level) bool {
-	return Default().EnableDepth(fromSlogLevel(l), 1)
+func (s *SlogHandler) Enabled(_ context.Context, l slog.Level) bool {
+	logger := s.getLogger()
+	return logger.EnableDepth(fromSlogLevel(l), 1)
 }
 
 // fromSlogLevel 将 slog.Level 转为本 logs 库中的 Level
@@ -77,15 +121,11 @@ func (s *SlogHandler) Handle(ctx context.Context, r slog.Record) error {
 	// 添加 Attrs
 	h.addAttrs(attrs)
 
-	l := s.logger
-	// 将 Attrs 添加到 Logger 上
-	for _, attr := range removeEmptyGroup(h.attrs) {
-		l = l.With(attr.Key, value(attr.Value))
-	}
-
+	// 将 slog.Record 带上，以备有的 Handler 需要获取
+	ctx = context.WithValue(ctx, CtxKeyRecord, r)
 	// 打印日志
 	// slog.Info -> slog.log -> Handle
-	l.Log(context.WithValue(ctx, CtxKeyRecord, r), 3, fromSlogLevel(r.Level), r.Message)
+	h.GetLogger().Log(ctx, 3, fromSlogLevel(r.Level), r.Message)
 	return nil
 }
 
@@ -139,30 +179,6 @@ func (h *SlogHandler) currentGroup() (group *slog.Attr) {
 		}
 	}
 	return
-}
-
-// removeEmptyGroup 最终处理时，需要移除空的 Group
-func removeEmptyGroup(attrs []slog.Attr) []slog.Attr {
-	var ret = make([]slog.Attr, 0, len(attrs))
-	for _, attr := range attrs {
-		av := attr.Value
-		if av.Kind() == slog.KindGroup {
-			if len(av.Group()) == 0 {
-				// 空的 group 直接跳过
-				continue
-			}
-			// 非空的 group 对包含的项目做处理
-			g := removeEmptyGroup(av.Group())
-			if len(g) == 0 {
-				// 处理后没有条目了 也跳过
-				continue
-			}
-			// 处理后还有内容 更新 Value
-			attr.Value = slog.GroupValue(g...)
-		}
-		ret = append(ret, attr)
-	}
-	return ret
 }
 
 // WithAttrs implements slog.Handler.
@@ -219,7 +235,7 @@ func (v value) MarshalJSON() ([]byte, error) {
 				buf.WriteRune(',')
 			}
 			buf.WriteString(fmt.Sprintf("%q:", attr.Key))
-			b, err := json.Marshal(value(attr.Value))
+			b, err := json.Marshal(value(attr.Value)) // 继续转为 value 类型，递归转 json
 			if err != nil {
 				return nil, err
 			}
