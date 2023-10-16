@@ -1,4 +1,5 @@
-//go:build go1.18
+//go:build !go1.18
+// +build !go1.18
 
 package trie_test
 
@@ -18,7 +19,7 @@ func TestTrie(t *testing.T) {
 	tree.Insert("code.gopub.tech/logs/中文", 40)
 	tree.Insert("code.gopub.tech/logs/中文/inner", 45)
 	tree.Insert("code.gopub.tech/logs/inner", 50)
-	if !reflect.DeepEqual(tree.ToMap(), map[string]any{
+	if !reflect.DeepEqual(tree.ToMap(), map[string]int{
 		"":                              10,
 		"main":                          20,
 		"gitee.com":                     25,
