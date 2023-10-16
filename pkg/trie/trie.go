@@ -1,5 +1,3 @@
-//go:build go1.18
-
 package trie
 
 type Tree[T any] struct {
