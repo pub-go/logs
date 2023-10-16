@@ -4,7 +4,7 @@ jobs:
   build: # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
     runs-on: ubuntu-latest
     strategy:
-      matrrix: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
+      matrix: # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
         go-version: [ '1.19', '1.20', '1.21.x' ]
     steps:
       - uses: actions/checkout@v4
