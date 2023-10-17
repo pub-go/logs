@@ -17,12 +17,15 @@ type Tree[T any] struct {
 // github   -> 20
 // github/a -> 30
 type node[T any] struct {
-	data *T
+	data *T // 为了下方需要与 nil 比较 所以取地址
 	chd  map[rune]*node[T]
 }
 
 func NewTree[T any](rootData T) *Tree[T] {
-	return &Tree[T]{root: &node[T]{data: &rootData, chd: make(map[rune]*node[T])}}
+	return &Tree[T]{root: &node[T]{
+		data: &rootData,
+		chd:  make(map[rune]*node[T]),
+	}}
 }
 
 func (t *Tree[T]) Insert(path string, data T) *Tree[T] {

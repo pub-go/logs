@@ -8,7 +8,7 @@ jobs:
       - name: Checkout source codes
         uses: actions/checkout@v1
       - name: sync to gitee
-        uses: Yikun/hub-mirror-action@mappings
+        uses: Yikun/hub-mirror-action@master
         with:
           src: github/pub-go
           dst: gitee/pub-go
